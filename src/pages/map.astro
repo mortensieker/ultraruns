@@ -1,0 +1,177 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Filters from "../components/Filters.astro";
+import { getUpcomingRuns } from "../lib/runs";
+
+import { LANDSDELE } from "../content/config";
+
+const runs = await getUpcomingRuns();
+const allDistances = runs.flatMap((r) => r.distances ?? []);
+const minLen = allDistances.length ? Math.floor(Math.min(...allDistances)) : 0;
+const maxLen = allDistances.length ? Math.ceil(Math.max(...allDistances)) : 300;
+const presentRegions = LANDSDELE.filter((r) => runs.some((run) => run.region === r));
+const runsJson = JSON.stringify(
+  runs.map((r) => ({ ...r, date: r.date.toISOString() })),
+);
+---
+
+<Layout
+  title="Kort over nordiske ultraløb"
+  description="Kort over kommende ultraløb i Norden. Find løb i dit område og filtrér på distance, område og måned."
+>
+  <section class="mb-8 lg:mb-12">
+    <p class="font-mono text-[11px] uppercase tracking-[0.3em] text-accent mb-3">Geografi</p>
+    <h1 class="font-display text-5xl sm:text-6xl lg:text-7xl tracking-tightest leading-[0.95]">
+      Norden, <span class="italic text-accent">løbet</span> i ultra.
+    </h1>
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 lg:gap-12">
+    <Filters minLen={minLen} maxLen={maxLen} regions={presentRegions} runs={runs} />
+
+    <div class="relative">
+      <div
+        id="map"
+        class="h-[65vh] min-h-[480px] rounded-3xl border border-line overflow-hidden shadow-[0_30px_60px_-30px_rgba(20,17,13,0.3)]"
+        aria-label="Kort over nordiske ultraløb"
+      ></div>
+      <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-stone mt-3 text-right">
+        <span data-count>{runs.length}</span> løb vist · Klik en pin for detaljer
+      </p>
+    </div>
+  </div>
+</Layout>
+
+<script id="runs-data" type="application/json" set:html={runsJson} is:inline />
+
+<script>
+  import L from "leaflet";
+  import "leaflet/dist/leaflet.css";
+  import { wireFilters, matches, type RunData } from "../lib/filter";
+
+  const raw = document.getElementById("runs-data")?.textContent ?? "[]";
+  const runs: RunData[] = JSON.parse(raw);
+
+  const map = L.map("map", { zoomControl: false }).setView([56.0, 11.0], 7);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    attribution: "© OpenStreetMap · © CARTO",
+    maxZoom: 19,
+  }).addTo(map);
+
+  const rustIcon = L.divIcon({
+    className: "ultra-pin",
+    html: `<span class="pin-dot"></span><span class="pin-pulse"></span>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+
+  const layer = L.layerGroup().addTo(map);
+
+  const formatHeadline = (r: RunData): string => {
+    if (r.distances?.length) return `${r.distances.join(" / ")} <span>km</span>`;
+    if (r.durations?.length) return `${r.durations.join(" / ")} <span>timer</span>`;
+    if (r.backyard) return `Backyard <span>6,7 km × ∞</span>`;
+    return "";
+  };
+
+  const render = (filtered: RunData[]) => {
+    layer.clearLayers();
+    filtered.forEach((r) => {
+      const date = new Date(r.date).toLocaleDateString("da-DK", {
+        day: "numeric", month: "long", year: "numeric",
+      });
+      const detailsHref = `/runs/${r.year}/${r.slug}/`;
+      const popup = `
+        <div class="ultra-popup">
+          <p class="region">${r.region}</p>
+          <h3><a class="title-link" href="${detailsHref}">${r.name}</a></h3>
+          <p class="meta">${date} · ${r.location}</p>
+          <p class="dist">${formatHeadline(r)}</p>
+          ${r.url ? `<a class="ext-link" href="${r.url}" target="_blank" rel="noopener">Officiel side ↗</a>` : ""}
+        </div>
+      `;
+      L.marker([r.lat, r.lng], { icon: rustIcon }).bindPopup(popup).addTo(layer);
+    });
+    const countEl = document.querySelector("[data-count]");
+    if (countEl) countEl.textContent = String(filtered.length);
+  };
+
+  wireFilters("[data-filters]", (f) => {
+    render(runs.filter((r) => matches(r, f)));
+  });
+</script>
+
+<style is:global>
+  .leaflet-popup-content-wrapper {
+    background: #f4efe6;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px -20px rgba(20,17,13,0.3);
+    padding: 4px;
+  }
+  .leaflet-popup-tip {
+    background: #f4efe6;
+  }
+  .ultra-popup {
+    font-family: "Geist", system-ui, sans-serif;
+    padding: 12px 14px;
+    min-width: 200px;
+  }
+  .ultra-popup .region {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #8a8276;
+    margin: 0 0 4px;
+  }
+  .ultra-popup h3 {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: #14110d;
+    margin: 0 0 8px;
+  }
+  .ultra-popup .meta {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: #8a8276;
+    margin: 0 0 8px;
+  }
+  .ultra-popup .dist {
+    font-family: "Fraunces", serif;
+    font-size: 22px;
+    color: #1a6b6b;
+    margin: 0 0 8px;
+  }
+  .ultra-popup .dist span {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #8a8276;
+    margin-left: 4px;
+  }
+  .ultra-popup .title-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .ultra-popup .title-link:hover {
+    color: #1a6b6b;
+  }
+  .ultra-popup .ext-link {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #14110d;
+    text-decoration: none;
+    border-bottom: 1px solid #1a6b6b;
+  }
+  .ultra-popup .ext-link:hover {
+    color: #1a6b6b;
+  }
+</style>

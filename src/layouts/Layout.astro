@@ -1,0 +1,101 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const {
+  title = "Nordiske Ultraløb — Find ultraløb i Norden",
+  description = "Komplet oversigt over kommende ultraløb i Norden. Filtrér på distance, område og måned. Se løbene på kort eller i liste.",
+} = Astro.props;
+const path = Astro.url.pathname;
+const canonical = new URL(path, Astro.site).toString();
+const isMap = path.startsWith("/map");
+---
+
+<!doctype html>
+<html lang="da" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="keywords" content="ultraløb, norden, danmark, sverige, norge, trail, ultra, nordiske ultraløb" />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#1a6b6b" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="da_DK" />
+    <meta property="og:site_name" content="Nordiske Ultraløb" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Geist:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    />
+
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Nordiske Ultraløb",
+      "url": Astro.site?.toString(),
+      "inLanguage": "da-DK",
+    })} is:inline />
+  </head>
+  <body class="grain min-h-screen flex flex-col">
+    <header class="border-b border-line/70 bg-paper/70 backdrop-blur-md sticky top-0 z-40">
+      <div class="max-w-[1400px] mx-auto px-5 sm:px-8 py-4 flex items-center justify-between gap-4">
+        <a href="/" class="flex items-baseline gap-2 group">
+          <span class="font-display font-semibold text-2xl sm:text-3xl tracking-tightest text-ink leading-none">
+            Nordiske<span class="italic font-normal text-accent">Ultraløb</span>
+          </span>
+        </a>
+        <nav class="flex items-center gap-1 font-mono text-xs uppercase tracking-widest">
+          <a
+            href="/"
+            class={`px-3 py-2 transition-colors ${!isMap ? "text-ink" : "text-stone hover:text-ink"}`}
+            aria-current={!isMap ? "page" : undefined}
+          >
+            <span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle"
+                  style={`background:${!isMap ? "#1a6b6b" : "transparent"};border:1px solid #1a6b6b;`}></span>
+            Liste
+          </a>
+          <a
+            href="/map"
+            class={`px-3 py-2 transition-colors ${isMap ? "text-ink" : "text-stone hover:text-ink"}`}
+            aria-current={isMap ? "page" : undefined}
+          >
+            <span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle"
+                  style={`background:${isMap ? "#1a6b6b" : "transparent"};border:1px solid #1a6b6b;`}></span>
+            Kort
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-[1400px] mx-auto w-full px-5 sm:px-8 py-8 sm:py-12">
+      <slot />
+    </main>
+
+    <footer class="border-t border-line/70 mt-16">
+      <div class="max-w-[1400px] mx-auto px-5 sm:px-8 py-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 font-mono text-xs uppercase tracking-widest text-stone">
+        <p>Et åbent register over nordiske ultraløb.</p>
+        <p>
+          Mangler dit løb?
+          <a href="https://github.com/mortensieker/ultraruns" target="_blank" rel="noopener" class="text-accent hover:text-accent-dark underline-offset-4 hover:underline">Send et PR →</a>
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

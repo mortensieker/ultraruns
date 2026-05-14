@@ -1,0 +1,357 @@
+---
+import { runFormats, type RunFormat } from "../lib/filter";
+
+interface Props {
+  minLen: number;
+  maxLen: number;
+  regions: readonly string[];
+  runs: { distances?: number[]; durations?: number[]; backyard?: boolean }[];
+}
+const { minLen, maxLen, regions, runs } = Astro.props;
+
+const FORMAT_ORDER: RunFormat[] = ["distance", "time", "backyard"];
+const FORMAT_LABELS: Record<RunFormat, string> = {
+  distance: "Distance",
+  time: "Tid",
+  backyard: "Backyard",
+};
+const presentFormats = FORMAT_ORDER.filter((f) =>
+  runs.some((r) => runFormats(r).includes(f)),
+);
+
+const months = [
+  "Jan", "Feb", "Mar", "Apr", "Maj", "Jun",
+  "Jul", "Aug", "Sep", "Okt", "Nov", "Dec",
+];
+const initialYear = new Date().getFullYear();
+---
+
+<aside
+  class="filters lg:sticky lg:top-24 lg:self-start"
+  data-filters
+  data-min-bound={minLen}
+  data-max-bound={maxLen}
+>
+  <!-- Mobile trigger -->
+  <button
+    type="button"
+    data-filter-toggle
+    class="lg:hidden w-full flex items-center justify-between px-4 py-3 border border-line bg-paper-warm/40 rounded-2xl font-mono text-xs uppercase tracking-widest text-ink"
+  >
+    <span class="flex items-center gap-2">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+      Filtrer
+    </span>
+    <span class="text-accent" data-active-count></span>
+  </button>
+
+  <!-- Panel: side-rail on desktop, bottom sheet on mobile -->
+  <div
+    class="filter-panel hidden lg:block fixed inset-x-0 bottom-0 lg:static lg:inset-auto z-50 lg:z-auto bg-paper lg:bg-paper-warm/40 lg:border lg:border-line rounded-t-3xl lg:rounded-3xl shadow-2xl lg:shadow-none max-h-[85vh] lg:max-h-none overflow-y-auto lg:overflow-visible"
+    data-filter-panel
+    role="dialog"
+    aria-label="Filtre"
+  >
+    <div class="flex items-center justify-between px-6 pt-5 pb-3 lg:hidden border-b border-line">
+      <span class="font-display text-xl">Filtre</span>
+      <button type="button" data-filter-close class="font-mono text-xs uppercase tracking-widest text-stone">Luk</button>
+    </div>
+
+    <div class="px-6 py-6 lg:p-6 space-y-7">
+      <!-- Distance -->
+      <div>
+        <div class="flex items-baseline justify-between mb-4">
+          <label class="font-mono text-[10px] uppercase tracking-[0.2em] text-stone">Distance</label>
+          <div class="font-mono text-sm tabular-nums">
+            <span data-dist-min>{minLen}</span><span class="text-stone">–</span><span data-dist-max>{maxLen}</span>
+            <span class="text-stone ml-1">km</span>
+          </div>
+        </div>
+        <div data-slider class="mx-2"></div>
+        <input type="hidden" data-min-input value={minLen} />
+        <input type="hidden" data-max-input value={maxLen} />
+      </div>
+
+      {regions.length > 0 && (
+        <div>
+          <label class="block font-mono text-[10px] uppercase tracking-[0.2em] text-stone mb-3">Område</label>
+          <div class="flex flex-wrap gap-2">
+            {regions.map((r) => (
+              <button
+                type="button"
+                class="chip-btn"
+                data-region
+                data-value={r}
+                aria-pressed="true"
+              >{r}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {presentFormats.length > 0 && (
+        <div>
+          <label class="block font-mono text-[10px] uppercase tracking-[0.2em] text-stone mb-3">Format</label>
+          <div class="flex flex-wrap gap-2">
+            {presentFormats.map((f) => (
+              <button
+                type="button"
+                class="chip-btn"
+                data-format
+                data-value={f}
+                aria-pressed="true"
+              >{FORMAT_LABELS[f]}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <!-- Periode (fra/til) -->
+      <div>
+        <label class="block font-mono text-[10px] uppercase tracking-[0.2em] text-stone mb-3">Periode</label>
+        <div class="space-y-2">
+          {(["from", "to"] as const).map((kind) => (
+            <div class="period-picker relative" data-kind={kind} data-display-year={initialYear}>
+              <button
+                type="button"
+                data-picker-toggle
+                class="w-full flex items-center justify-between font-mono text-xs bg-paper border border-line rounded-lg px-3 py-2.5 text-ink hover:border-ink transition-colors"
+              >
+                <span class="text-stone uppercase tracking-widest text-[10px]">{kind === "from" ? "Fra" : "Til"}</span>
+                <span data-picker-label class="text-ink">Vælg</span>
+                <span class="text-stone" aria-hidden>▾</span>
+              </button>
+
+              <input type="hidden" data-month-input data-kind={kind} />
+              <input type="hidden" data-year-input data-kind={kind} />
+
+              <div
+                data-picker-panel
+                hidden
+                class="absolute z-30 left-0 right-0 mt-2 bg-paper border border-line rounded-xl shadow-[0_20px_40px_-20px_rgba(20,17,13,0.3)] p-3"
+              >
+                <div class="flex items-center justify-between mb-3">
+                  <button
+                    type="button"
+                    data-year-prev
+                    class="w-7 h-7 flex items-center justify-center rounded-md border border-line hover:border-ink text-ink"
+                    aria-label="Forrige år"
+                  >‹</button>
+                  <span data-year-display class="font-display text-xl text-ink">{initialYear}</span>
+                  <button
+                    type="button"
+                    data-year-next
+                    class="w-7 h-7 flex items-center justify-center rounded-md border border-line hover:border-ink text-ink"
+                    aria-label="Næste år"
+                  >›</button>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5">
+                  {months.map((m, i) => (
+                    <button
+                      type="button"
+                      data-month-pick
+                      data-value={i + 1}
+                      class="month-cell font-mono text-xs px-2 py-2 rounded-md border border-line text-ink hover:border-ink"
+                    >{m}</button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  data-picker-clear
+                  class="w-full mt-3 font-mono text-[10px] uppercase tracking-widest text-stone hover:text-accent py-1"
+                >Ryd</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        data-reset
+        class="w-full font-mono text-xs uppercase tracking-widest text-stone hover:text-accent py-2 border-t border-line pt-4"
+      >
+        Nulstil filtre
+      </button>
+    </div>
+  </div>
+
+  <div data-filter-backdrop class="hidden fixed inset-0 bg-ink/40 z-40 lg:hidden"></div>
+</aside>
+
+<script>
+  import noUiSlider from "nouislider";
+  import "nouislider/dist/nouislider.css";
+
+  const root = document.querySelector<HTMLElement>("[data-filters]");
+  if (root) {
+    const minBound = Number(root.dataset.minBound);
+    const maxBound = Number(root.dataset.maxBound);
+    const sliderEl = root.querySelector<HTMLElement>("[data-slider]")!;
+    const minHidden = root.querySelector<HTMLInputElement>("[data-min-input]")!;
+    const maxHidden = root.querySelector<HTMLInputElement>("[data-max-input]")!;
+    const minLbl = root.querySelector("[data-dist-min]")!;
+    const maxLbl = root.querySelector("[data-dist-max]")!;
+
+    noUiSlider.create(sliderEl, {
+      start: [minBound, maxBound],
+      connect: true,
+      step: 1,
+      range: { min: minBound, max: maxBound },
+    });
+    (sliderEl as any).noUiSlider.on("update", (values: string[]) => {
+      const [lo, hi] = values.map((v) => Math.round(Number(v)));
+      minLbl.textContent = String(lo);
+      maxLbl.textContent = String(hi);
+      minHidden.value = String(lo);
+      maxHidden.value = String(hi);
+      minHidden.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    // Region chip toggles
+    root.querySelectorAll<HTMLButtonElement>(".chip-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const pressed = btn.getAttribute("aria-pressed") === "true";
+        btn.setAttribute("aria-pressed", pressed ? "false" : "true");
+        btn.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    });
+
+    // Period pickers
+    const MONTH_LABELS = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+    const pickers = root.querySelectorAll<HTMLElement>(".period-picker");
+
+    const updateLabel = (p: HTMLElement) => {
+      const m = p.querySelector<HTMLInputElement>("[data-month-input]")!.value;
+      const y = p.querySelector<HTMLInputElement>("[data-year-input]")!.value;
+      const lbl = p.querySelector<HTMLElement>("[data-picker-label]")!;
+      lbl.textContent = m && y ? `${MONTH_LABELS[Number(m) - 1]} ${y}` : "Vælg";
+    };
+
+    const highlightSelected = (p: HTMLElement) => {
+      const m = p.querySelector<HTMLInputElement>("[data-month-input]")!.value;
+      const y = p.querySelector<HTMLInputElement>("[data-year-input]")!.value;
+      const display = p.dataset.displayYear;
+      p.querySelectorAll<HTMLButtonElement>("[data-month-pick]").forEach((btn) => {
+        const isSelected = m === btn.dataset.value && y === display;
+        btn.setAttribute("aria-pressed", isSelected ? "true" : "false");
+      });
+    };
+
+    const closeAll = (except?: HTMLElement) => {
+      pickers.forEach((p) => {
+        if (p === except) return;
+        p.querySelector<HTMLElement>("[data-picker-panel]")!.hidden = true;
+      });
+    };
+
+    pickers.forEach((p) => {
+      const toggle = p.querySelector<HTMLButtonElement>("[data-picker-toggle]")!;
+      const panel = p.querySelector<HTMLElement>("[data-picker-panel]")!;
+      const yearDisplay = p.querySelector<HTMLElement>("[data-year-display]")!;
+      const monthInput = p.querySelector<HTMLInputElement>("[data-month-input]")!;
+      const yearInput = p.querySelector<HTMLInputElement>("[data-year-input]")!;
+
+      const setDisplayYear = (y: number) => {
+        p.dataset.displayYear = String(y);
+        yearDisplay.textContent = String(y);
+        highlightSelected(p);
+      };
+
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const wasHidden = panel.hidden;
+        closeAll(p);
+        panel.hidden = !wasHidden;
+        if (!panel.hidden) {
+          // Open at currently-selected year if any, else current display year
+          const y = yearInput.value || p.dataset.displayYear!;
+          setDisplayYear(Number(y));
+        }
+      });
+
+      p.querySelector<HTMLButtonElement>("[data-year-prev]")!.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setDisplayYear(Number(p.dataset.displayYear) - 1);
+      });
+      p.querySelector<HTMLButtonElement>("[data-year-next]")!.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setDisplayYear(Number(p.dataset.displayYear) + 1);
+      });
+
+      p.querySelectorAll<HTMLButtonElement>("[data-month-pick]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          monthInput.value = btn.dataset.value!;
+          yearInput.value = p.dataset.displayYear!;
+          updateLabel(p);
+          highlightSelected(p);
+          panel.hidden = true;
+          monthInput.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+      });
+
+      p.querySelector<HTMLButtonElement>("[data-picker-clear]")!.addEventListener("click", (e) => {
+        e.stopPropagation();
+        monthInput.value = "";
+        yearInput.value = "";
+        updateLabel(p);
+        highlightSelected(p);
+        panel.hidden = true;
+        monthInput.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    });
+
+    // Click outside closes any open picker
+    document.addEventListener("click", (e) => {
+      if (!(e.target as HTMLElement).closest(".period-picker")) closeAll();
+    });
+
+    // Reset
+    root.querySelector("[data-reset]")?.addEventListener("click", () => {
+      (sliderEl as any).noUiSlider.set([minBound, maxBound]);
+      root.querySelectorAll<HTMLButtonElement>(".chip-btn").forEach((b) => b.setAttribute("aria-pressed", "true"));
+      pickers.forEach((p) => {
+        p.querySelector<HTMLInputElement>("[data-month-input]")!.value = "";
+        p.querySelector<HTMLInputElement>("[data-year-input]")!.value = "";
+        p.dataset.displayYear = String(new Date().getFullYear());
+        p.querySelector<HTMLElement>("[data-year-display]")!.textContent = p.dataset.displayYear;
+        updateLabel(p);
+        highlightSelected(p);
+      });
+      root.querySelector<HTMLInputElement>("[data-min-input]")?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    // Mobile sheet
+    const panel = root.querySelector<HTMLElement>("[data-filter-panel]")!;
+    const backdrop = root.querySelector<HTMLElement>("[data-filter-backdrop]")!;
+    const open = () => {
+      panel.classList.remove("hidden");
+      backdrop.classList.remove("hidden");
+      panel.classList.add("animate-slide-up");
+    };
+    const close = () => {
+      if (window.matchMedia("(min-width: 1024px)").matches) return;
+      panel.classList.add("hidden");
+      backdrop.classList.add("hidden");
+    };
+    root.querySelector("[data-filter-toggle]")?.addEventListener("click", open);
+    root.querySelector("[data-filter-close]")?.addEventListener("click", close);
+    backdrop.addEventListener("click", close);
+  }
+</script>
+
+<style>
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  :global(.animate-slide-up) {
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  :global(.month-cell[aria-pressed="true"]) {
+    background: #14110d;
+    color: #f4efe6;
+    border-color: #14110d;
+  }
+</style>

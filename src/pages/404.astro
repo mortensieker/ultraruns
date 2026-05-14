@@ -1,0 +1,24 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="404 — Nordiske Ultraløb" description="Siden findes ikke.">
+  <section class="text-center py-20 lg:py-32">
+    <p class="font-mono text-[11px] uppercase tracking-[0.3em] text-accent mb-6">404</p>
+    <h1 class="font-display font-normal text-6xl sm:text-8xl lg:text-[10rem] leading-[0.9] tracking-tightest text-ink">
+      Off <span class="italic text-accent">trail.</span>
+    </h1>
+    <p class="mt-8 max-w-md mx-auto text-stone text-lg leading-relaxed">
+      Siden du ledte efter findes ikke — eller er allerede løbet forbi.
+    </p>
+    <div class="mt-10 flex items-center justify-center gap-4 font-mono text-xs uppercase tracking-widest">
+      <a href="/" class="text-ink border-b-2 border-accent pb-1 hover:text-accent transition-colors">
+        Tilbage til alle løb
+      </a>
+      <span class="text-stone">·</span>
+      <a href="/map" class="text-stone hover:text-ink transition-colors">
+        Se kortet
+      </a>
+    </div>
+  </section>
+</Layout>

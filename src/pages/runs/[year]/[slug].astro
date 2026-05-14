@@ -1,0 +1,203 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { getCollection } from "astro:content";
+
+export async function getStaticPaths() {
+  const runs = await getCollection("runs");
+  return runs.map((r) => {
+    const [year, file] = r.id.split("/");
+    const slug = file.replace(/\.(ya?ml|json)$/, "");
+    return { params: { year, slug }, props: { run: r.data } };
+  });
+}
+
+const { run } = Astro.props;
+const d = new Date(run.date);
+const day = d.getDate();
+const monthShort = d
+  .toLocaleDateString("da-DK", { month: "short" })
+  .toUpperCase()
+  .replace(".", "");
+const year = d.getFullYear();
+const hasDist = !!run.distances?.length;
+const hasDur = !!run.durations?.length;
+const longestDist = hasDist ? Math.max(...run.distances!) : 0;
+const longestDur = hasDur ? Math.max(...run.durations!) : 0;
+const headlineKind = hasDist ? "km" : hasDur ? "t" : "backyard";
+const daysTo = Math.max(0, Math.ceil((+d - Date.now()) / 86400000));
+const dateLong = d.toLocaleDateString("da-DK", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+const paragraphs = (run.details ?? "")
+  .split(/\n\s*\n/)
+  .map((p) => p.trim())
+  .filter(Boolean);
+---
+
+<Layout
+  title={`${run.name} ${year} — Nordiske Ultraløb`}
+  description={run.description ?? `${run.name} i ${run.location}.`}
+>
+  <p class="font-mono text-[11px] uppercase tracking-[0.25em] text-stone mb-6">
+    <a href="/" class="hover:text-ink transition-colors">← Alle løb</a>
+  </p>
+
+  <!-- HERO -->
+  <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-end mb-12 lg:mb-16">
+    <div class="lg:col-span-9">
+      <p class="font-mono text-[11px] uppercase tracking-[0.3em] text-accent mb-4">
+        {run.region} · {run.location}
+      </p>
+      <h1 class="font-display font-normal text-5xl sm:text-7xl lg:text-[7rem] leading-[0.9] tracking-tightest text-ink">
+        {run.name}
+      </h1>
+      {run.description && (
+        <p class="mt-6 max-w-2xl text-stone text-lg leading-relaxed">
+          {run.description}
+        </p>
+      )}
+    </div>
+
+    <aside class="lg:col-span-3 border-l-2 border-accent pl-5 lg:pl-7">
+      <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-stone mb-2">Dato</p>
+      <p class="font-display text-3xl leading-tight">
+        {day} <span class="text-accent">{monthShort}</span>
+      </p>
+      <p class="font-mono text-xs text-stone mt-2">{dateLong}</p>
+      <p class="font-mono text-xs text-ink mt-2">
+        {daysTo === 0 ? "I dag" : `om ${daysTo} dage`}
+      </p>
+    </aside>
+  </section>
+
+  <!-- STATS -->
+  <section class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border border-line mb-12 lg:mb-16 rounded-2xl overflow-hidden">
+    <div class="bg-paper p-5 sm:p-6">
+      <p class="font-mono text-[10px] uppercase tracking-widest text-stone mb-2">Format</p>
+      {headlineKind === "km" && (
+        <p class="font-display text-4xl text-ink tabular-nums leading-none">
+          {longestDist}<span class="font-mono text-xs text-stone ml-1">km</span>
+        </p>
+      )}
+      {headlineKind === "t" && (
+        <p class="font-display text-4xl text-ink tabular-nums leading-none">
+          {longestDur}<span class="font-mono text-xs text-stone ml-1">timer</span>
+        </p>
+      )}
+      {headlineKind === "backyard" && (
+        <p class="font-display text-3xl text-ink leading-tight">Backyard</p>
+      )}
+    </div>
+    <div class="bg-paper p-5 sm:p-6">
+      <p class="font-mono text-[10px] uppercase tracking-widest text-stone mb-2">Klasser</p>
+      <p class="font-display text-xl text-ink leading-tight">
+        {hasDist && <span>{run.distances!.join(" / ")} km</span>}
+        {hasDist && hasDur && <span class="text-stone"> · </span>}
+        {hasDur && <span>{run.durations!.join(" / ")} t</span>}
+        {(hasDist || hasDur) && run.backyard && <span class="text-stone"> · </span>}
+        {run.backyard && <span>6,7 km × ∞</span>}
+      </p>
+    </div>
+    <div class="bg-paper p-5 sm:p-6">
+      <p class="font-mono text-[10px] uppercase tracking-widest text-stone mb-2">Område</p>
+      <p class="font-display text-2xl text-ink leading-tight">{run.region}</p>
+    </div>
+    <div class="bg-paper p-5 sm:p-6">
+      <p class="font-mono text-[10px] uppercase tracking-widest text-stone mb-2">Sted</p>
+      <p class="font-display text-2xl text-ink leading-tight">{run.location}</p>
+    </div>
+  </section>
+
+  <!-- BODY -->
+  <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 lg:gap-16">
+    <article class="max-w-2xl">
+      <h2 class="font-display text-3xl text-ink mb-6">Om løbet</h2>
+      {paragraphs.length > 0 ? (
+        <div class="space-y-5 text-stone text-base leading-relaxed">
+          {paragraphs.map((p) => <p>{p}</p>)}
+        </div>
+      ) : (
+        <p class="text-stone leading-relaxed">
+          {run.description ?? "Endnu ingen yderligere information om dette løb."}
+          {run.url && " Tjek den officielle side for detaljer."}
+        </p>
+      )}
+
+      {run.url && (
+        <a
+          href={run.url}
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-2 mt-8 font-mono text-xs uppercase tracking-widest text-ink border-b-2 border-accent pb-1 hover:text-accent transition-colors"
+        >
+          Officiel side <span aria-hidden>→</span>
+        </a>
+      )}
+    </article>
+
+    <aside class="lg:sticky lg:top-24 lg:self-start">
+      <p class="font-mono text-[10px] uppercase tracking-widest text-stone mb-3">Kort</p>
+      <div
+        id="detail-map"
+        data-lat={run.lat}
+        data-lng={run.lng}
+        class="h-[280px] rounded-2xl border border-line overflow-hidden"
+        aria-label={`Kort over ${run.location}`}
+      ></div>
+      <p class="font-mono text-xs text-stone mt-3 flex items-center justify-between">
+        <span>{run.lat.toFixed(4)}, {run.lng.toFixed(4)}</span>
+        <a href="/map" class="text-ink hover:text-accent transition-colors uppercase tracking-widest text-[10px]">
+          Se alle på kortet →
+        </a>
+      </p>
+    </aside>
+  </div>
+</Layout>
+
+<script>
+  import L from "leaflet";
+  import "leaflet/dist/leaflet.css";
+
+  const el = document.getElementById("detail-map");
+  if (el) {
+    const lat = Number(el.dataset.lat);
+    const lng = Number(el.dataset.lng);
+    const map = L.map(el, {
+      zoomControl: true,
+      scrollWheelZoom: false,
+      dragging: false,
+      doubleClickZoom: true,
+      touchZoom: false,
+      boxZoom: false,
+      keyboard: false,
+    }).setView([lat, lng], 8);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      attribution: "© OpenStreetMap · © CARTO",
+      maxZoom: 19,
+    }).addTo(map);
+    const icon = L.divIcon({
+      className: "ultra-pin",
+      html: `<span class="pin-dot"></span><span class="pin-pulse"></span>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+    L.marker([lat, lng], { icon }).addTo(map);
+  }
+</script>
+
+<script type="application/ld+json" set:html={JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "SportsEvent",
+  "name": run.name,
+  "startDate": run.date.toISOString().slice(0, 10),
+  "description": run.description,
+  "location": {
+    "@type": "Place",
+    "name": run.location,
+    "geo": { "@type": "GeoCoordinates", "latitude": run.lat, "longitude": run.lng },
+  },
+  "url": run.url,
+})} is:inline />

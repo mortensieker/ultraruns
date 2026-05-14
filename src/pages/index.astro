@@ -1,0 +1,253 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Filters from "../components/Filters.astro";
+import { getUpcomingRuns } from "../lib/runs";
+import { runFormats } from "../lib/filter";
+import { LANDSDELE } from "../content/config";
+
+const runs = await getUpcomingRuns();
+const allDistances = runs.flatMap((r) => r.distances ?? []);
+const minLen = allDistances.length ? Math.floor(Math.min(...allDistances)) : 0;
+const maxLen = allDistances.length ? Math.ceil(Math.max(...allDistances)) : 300;
+const presentRegions = LANDSDELE.filter((r) => runs.some((run) => run.region === r));
+const nextRun = runs[0];
+const daysTo = nextRun
+  ? Math.max(0, Math.ceil((+nextRun.date - Date.now()) / 86400000))
+  : null;
+
+const nextHeadline = nextRun
+  ? nextRun.distances?.length
+    ? `${nextRun.distances.join(" / ")} KM`
+    : nextRun.durations?.length
+      ? `${nextRun.durations.join(" / ")} TIMER`
+      : nextRun.backyard
+        ? "BACKYARD"
+        : ""
+  : "";
+---
+
+<Layout
+  title="Nordiske Ultraløb — Find dit næste ultraløb i Norden"
+  description="Komplet oversigt over kommende ultraløb i Norden. Filtrér på distance, område og måned."
+>
+  <!-- HERO -->
+  <section class="relative mb-12 lg:mb-20 reveal" style="--delay:0ms">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-end">
+      <div class="lg:col-span-8">
+        <p class="font-mono text-[11px] uppercase tracking-[0.3em] text-accent mb-4">
+          {runs.length} kommende løb · Opdateret {new Date().toLocaleDateString("da-DK", { day: "numeric", month: "short" })}
+        </p>
+        <h1 class="font-display font-normal text-5xl sm:text-7xl lg:text-[8rem] leading-[0.9] tracking-tightest text-ink">
+          Find dit<br />
+          <span class="italic text-accent">næste</span> ultraløb.
+        </h1>
+        <p class="mt-6 max-w-xl text-stone text-lg leading-relaxed">
+          Et åbent register over ultraløb i Norden.
+        </p>
+      </div>
+
+      {nextRun && (
+        <aside class="lg:col-span-4 border-l-2 border-accent pl-5 lg:pl-7">
+          <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-stone mb-2">Næste løb</p>
+          <p class="font-display text-2xl lg:text-3xl leading-tight">{nextRun.name}</p>
+          <div class="font-mono text-sm text-stone mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            <span class="text-ink">{daysTo === 0 ? "I dag" : `om ${daysTo} dage`}</span>
+            <span>·</span>
+            <span>{nextRun.location}</span>
+          </div>
+          <p class="font-mono text-xs text-accent mt-3 tracking-wider">{nextHeadline}</p>
+        </aside>
+      )}
+    </div>
+  </section>
+
+  <!-- BODY -->
+  <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 lg:gap-12">
+    <Filters minLen={minLen} maxLen={maxLen} regions={presentRegions} runs={runs} />
+
+    <section>
+      <div class="flex items-baseline justify-between mb-6 border-b border-line pb-3">
+        <p class="font-mono text-[11px] uppercase tracking-[0.25em] text-stone">
+          Viser <span data-count class="text-ink font-medium">{runs.length}</span> løb
+        </p>
+        <p class="font-mono text-[11px] uppercase tracking-[0.25em] text-stone hidden sm:block">
+          Sorteret efter dato
+        </p>
+      </div>
+
+      {runs.length === 0 ? (
+        <p class="font-display text-2xl text-stone text-center py-20">Ingen kommende løb i kalenderen.</p>
+      ) : (
+        <ul class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5" data-cards>
+          {runs.map((r, i) => {
+            const d = new Date(r.date);
+            const day = d.getDate();
+            const monthShort = d.toLocaleDateString("da-DK", { month: "short" }).toUpperCase().replace(".", "");
+            const formats = runFormats(r);
+
+            const hasDist = !!r.distances?.length;
+            const hasDur = !!r.durations?.length;
+            const longestDist = hasDist ? Math.max(...r.distances!) : 0;
+            const longestDur = hasDur ? Math.max(...r.durations!) : 0;
+
+            // Headline format priority: distance > time > backyard.
+            const headlineKind = hasDist ? "km" : hasDur ? "t" : "backyard";
+            const headlineValue = hasDist ? longestDist : hasDur ? longestDur : 0;
+            const extras: string[] = [];
+            if (hasDist && r.distances!.length > 1) {
+              extras.push(...r.distances!.filter((x) => x !== longestDist).map((x) => `${x} km`));
+            }
+            if (hasDur) {
+              if (headlineKind === "t") {
+                if (r.durations!.length > 1) extras.push(...r.durations!.filter((x) => x !== longestDur).map((x) => `${x}t`));
+              } else {
+                extras.push(...r.durations!.map((x) => `${x}t`));
+              }
+            }
+            if (r.backyard && headlineKind !== "backyard") extras.push("backyard");
+
+            return (
+              <li
+                class="card group reveal"
+                style={`--delay:${Math.min(i, 8) * 40 + 100}ms`}
+                data-card
+                data-region={r.region}
+                data-formats={formats.join(",")}
+                data-distances={(r.distances ?? []).join(",")}
+                data-month={d.getMonth() + 1}
+                data-year-month={`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`}
+              >
+                <a
+                  href={`/runs/${r.year}/${r.slug}/`}
+                  class="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-2xl"
+                >
+                <article class="relative h-full bg-paper border border-line rounded-2xl p-5 sm:p-6 flex flex-col gap-5 overflow-hidden transition-all duration-300 hover:border-ink hover:shadow-[0_20px_40px_-20px_rgba(20,17,13,0.25)] hover:-translate-y-0.5">
+                  <!-- Contour decoration -->
+                  <svg class="absolute -right-10 -bottom-10 w-48 h-48 text-accent/[0.06] pointer-events-none" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="0.5">
+                    <circle cx="50" cy="50" r="20"/>
+                    <circle cx="50" cy="50" r="28"/>
+                    <circle cx="50" cy="50" r="36"/>
+                    <circle cx="50" cy="50" r="44"/>
+                  </svg>
+
+                  <header class="flex items-start justify-between gap-4 relative">
+                    <div class="flex-1 min-w-0">
+                      <p class="font-mono text-[10px] uppercase tracking-[0.25em] text-stone mb-1">{r.region}</p>
+                      <h3 class="font-display text-2xl leading-[1.05] text-ink tracking-tightest">{r.name}</h3>
+                    </div>
+                    <div class="flex-shrink-0 text-right">
+                      <div class="font-display text-3xl leading-none text-accent">{day}</div>
+                      <div class="font-mono text-[10px] uppercase tracking-widest text-stone mt-1">{monthShort}</div>
+                    </div>
+                  </header>
+
+                  <div class="flex items-baseline gap-2 relative">
+                    {headlineKind === "backyard" ? (
+                      <span class="font-display text-4xl leading-none text-ink">Backyard</span>
+                    ) : (
+                      <>
+                        <span class="font-display text-6xl leading-none text-ink tabular-nums">{headlineValue}</span>
+                        <span class="font-mono text-xs uppercase tracking-widest text-stone">
+                          {headlineKind === "km" ? "km" : "timer"}
+                        </span>
+                      </>
+                    )}
+                    {extras.length > 0 && (
+                      <span class="font-mono text-[11px] text-stone ml-auto self-end pb-1">
+                        + {extras.join(" / ")}
+                      </span>
+                    )}
+                  </div>
+
+                  <div class="flex items-center justify-between gap-3 mt-auto pt-4 border-t border-line/70 relative">
+                    <p class="font-mono text-xs text-stone truncate">{r.location}</p>
+                    <span class="font-mono text-[10px] uppercase tracking-widest text-ink group-hover:text-accent transition-colors whitespace-nowrap flex items-center gap-1">
+                      Detaljer <span aria-hidden>→</span>
+                    </span>
+                  </div>
+                </article>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p data-empty class="font-display text-2xl text-stone text-center py-20" hidden>
+        Ingen løb matcher dine filtre.
+      </p>
+    </section>
+  </div>
+</Layout>
+
+<script>
+  import { wireFilters } from "../lib/filter";
+
+  // Reveal animation (Web Animations API — no dependency)
+  const reveals = document.querySelectorAll<HTMLElement>(".reveal");
+  reveals.forEach((el) => {
+    const delay = Number(getComputedStyle(el).getPropertyValue("--delay").replace("ms", "")) || 0;
+    el.animate(
+      [
+        { opacity: 0, transform: "translateY(20px)" },
+        { opacity: 1, transform: "translateY(0)" },
+      ],
+      { duration: 700, delay, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "forwards" },
+    );
+  });
+
+  wireFilters("[data-filters]", (f) => {
+    const cards = document.querySelectorAll<HTMLElement>("[data-card]");
+    let visible = 0;
+    cards.forEach((card) => {
+      const region = card.dataset.region!;
+      const ym = card.dataset.yearMonth!;
+      const formats = (card.dataset.formats ?? "").split(",").filter(Boolean);
+      const distances = (card.dataset.distances ?? "").split(",").map(Number).filter(Boolean);
+      const inDateRange =
+        (!f.dateFrom || ym >= f.dateFrom) && (!f.dateTo || ym <= f.dateTo);
+      const visibleFormats = formats.filter((fmt) => f.formats.has(fmt as any));
+      const formatOk = visibleFormats.length > 0;
+      const distOk =
+        !visibleFormats.includes("distance") ||
+        visibleFormats.length > 1 ||
+        distances.some((d) => d >= f.minLen && d <= f.maxLen);
+      const ok = f.regions.has(region) && inDateRange && formatOk && distOk;
+      card.hidden = !ok;
+      if (ok) visible++;
+    });
+    const countEl = document.querySelector("[data-count]");
+    if (countEl) countEl.textContent = String(visible);
+    const empty = document.querySelector<HTMLElement>("[data-empty]");
+    if (empty) empty.hidden = visible !== 0;
+
+    // Active filter pill
+    const totalRegions = document.querySelectorAll("[data-region]").length;
+    const totalFormats = document.querySelectorAll("[data-format]").length;
+    const minBound = Number(document.querySelector<HTMLElement>("[data-filters]")!.dataset.minBound);
+    const maxBound = Number(document.querySelector<HTMLElement>("[data-filters]")!.dataset.maxBound);
+    const active =
+      (f.regions.size !== totalRegions ? 1 : 0) +
+      (f.formats.size !== totalFormats ? 1 : 0) +
+      (f.minLen !== minBound || f.maxLen !== maxBound ? 1 : 0) +
+      (f.dateFrom || f.dateTo ? 1 : 0);
+    const pill = document.querySelector("[data-active-count]");
+    if (pill) pill.textContent = active ? `${active} aktiv${active > 1 ? "e" : ""}` : "";
+  });
+</script>
+
+<script type="application/ld+json" set:html={JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "Nordiske Ultraløb — kommende løb",
+  "itemListElement": runs.map((r, i) => ({
+    "@type": "ListItem",
+    "position": i + 1,
+    "item": {
+      "@type": "SportsEvent",
+      "name": r.name,
+      "startDate": r.date.toISOString().slice(0, 10),
+      "location": { "@type": "Place", "name": r.location, "geo": { "@type": "GeoCoordinates", "latitude": r.lat, "longitude": r.lng } },
+      "url": r.url,
+    },
+  })),
+})} is:inline />
